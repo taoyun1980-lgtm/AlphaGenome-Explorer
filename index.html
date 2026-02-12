@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaGenome Explorer - 基因组 AI 预测演示</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-primary: #0a0e17;
+    --bg-secondary: #111827;
+    --bg-card: #1a2332;
+    --bg-input: #0d1422;
+    --border: #2a3a52;
+    --border-focus: #3b82f6;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --accent-green: #10b981;
+    --accent-purple: #8b5cf6;
+    --accent-pink: #ec4899;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --dna-a: #ef4444;
+    --dna-t: #3b82f6;
+    --dna-g: #10b981;
+    --dna-c: #f59e0b;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* DNA Helix animation background */
+  .bg-helix {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg,
+        transparent, transparent 60px,
+        var(--accent-cyan) 60px, var(--accent-cyan) 61px
+      );
+    animation: helixShift 20s linear infinite;
+  }
+  @keyframes helixShift { from { transform: translateX(0); } to { transform: translateX(-61px); } }
+
+  /* Header */
+  header {
+    position: relative;
+    z-index: 10;
+    background: linear-gradient(135deg, rgba(17,24,39,0.95), rgba(26,35,50,0.95));
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    padding: 0;
+  }
+
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: white;
+    box-shadow: 0 0 20px rgba(6,182,212,0.3);
+  }
+
+  .logo-text h1 {
+    font-size: 22px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .status-badge.demo {
+    background: rgba(245,158,11,0.15);
+    color: var(--accent-amber);
+    border: 1px solid rgba(245,158,11,0.3);
+  }
+
+  .status-badge.live {
+    background: rgba(16,185,129,0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .demo .status-dot { background: var(--accent-amber); }
+  .live .status-dot { background: var(--accent-green); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Main layout */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+  }
+
+  /* Info banner */
+  .info-banner {
+    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08));
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .info-banner-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .info-banner p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .info-banner a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+  }
+
+  .info-banner a:hover { text-decoration: underline; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .tab:hover {
+    color: var(--text-secondary);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .tab.active {
+    background: var(--bg-card);
+    color: var(--accent-cyan);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .tab-icon { font-size: 16px; }
+
+  /* Content panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Card layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .card-header-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .card-body { padding: 20px; }
+
+  /* Form elements */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group:last-child { margin-bottom: 0; }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+
+  .form-select {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  .form-textarea {
+    min-height: 80px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    color: white;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 20px rgba(59,130,246,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+
+  .btn.loading .spinner { display: block; }
+  .btn.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Visualization area */
+  .viz-container {
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .viz-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-muted);
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .viz-placeholder-icon {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+
+  .viz-placeholder p { font-size: 14px; line-height: 1.6; }
+
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    padding: 16px 0;
+  }
+
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-title .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .badge-live {
+    background: rgba(16,185,129,0.15);
+    color: var(--accent-green);
+  }
+
+  .badge-demo {
+    background: rgba(245,158,11,0.15);
+    color: var(--accent-amber);
+  }
+
+  /* Variant score display */
+  .score-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .score-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .score-card-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .score-card-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'SF Mono', monospace;
+  }
+
+  .score-high { color: var(--accent-red); }
+  .score-medium { color: var(--accent-amber); }
+  .score-low { color: var(--accent-green); }
+
+  .score-card-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* DNA Sequence viewer */
+  .dna-viewer {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    padding: 16px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+    word-break: break-all;
+    margin-bottom: 16px;
+  }
+
+  .dna-viewer .base-A { color: var(--dna-a); }
+  .dna-viewer .base-T { color: var(--dna-t); }
+  .dna-viewer .base-G { color: var(--dna-g); }
+  .dna-viewer .base-C { color: var(--dna-c); }
+  .dna-viewer .base-N { color: var(--text-muted); }
+
+  /* Contact map */
+  .contact-map-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  #contactCanvas {
+    border-radius: 4px;
+    image-rendering: pixelated;
+  }
+
+  /* Modality showcase */
+  .modality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .modality-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modality-card:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(6,182,212,0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+
+  .modality-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .modality-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .modality-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .modality-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* Examples section */
+  .examples-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .example-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+  }
+
+  .example-item:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(6,182,212,0.05);
+  }
+
+  .example-item .example-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+  }
+
+  footer a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header-inner { padding: 16px; flex-wrap: wrap; }
+    main { padding: 16px 16px 60px; }
+    .tabs { flex-wrap: wrap; }
+    .tab { font-size: 13px; padding: 10px 12px; }
+    .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="bg-helix"></div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-area">
+      <div class="logo-icon">AG</div>
+      <div class="logo-text">
+        <h1>AlphaGenome Explorer</h1>
+        <p>Google DeepMind 基因组 AI 预测演示</p>
+      </div>
+    </div>
+    <div id="statusBadge" class="status-badge demo">
+      <span class="status-dot"></span>
+      <span id="statusText">Demo Mode</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Info banner -->
+  <div class="info-banner">
+    <span class="info-banner-icon">&#128300;</span>
+    <p>
+      AlphaGenome 是 Google DeepMind 的基因组调控解码 AI 模型，可对长达 <strong>100 万碱基对</strong> 的 DNA 序列进行多模态预测，
+      包括基因表达、剪接模式、染色质特征和接触图谱，分辨率达 <strong>单碱基对</strong> 级别。
+      <a href="https://deepmind.google/blog/alphagenome-ai-for-better-understanding-the-genome/" target="_blank">了解更多</a> |
+      <a href="https://www.alphagenomedocs.com/" target="_blank">API 文档</a> |
+      <a href="https://github.com/google-deepmind/alphagenome" target="_blank">GitHub</a>
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="sequence" onclick="switchTab('sequence')">
+      <span class="tab-icon">&#129516;</span> 序列预测
+    </button>
+    <button class="tab" data-tab="interval" onclick="switchTab('interval')">
+      <span class="tab-icon">&#128205;</span> 区间预测
+    </button>
+    <button class="tab" data-tab="variant" onclick="switchTab('variant')">
+      <span class="tab-icon">&#128256;</span> 变异分析
+    </button>
+    <button class="tab" data-tab="overview" onclick="switchTab('overview')">
+      <span class="tab-icon">&#128218;</span> 模态概览
+    </button>
+  </div>
+
+  <!-- Sequence Prediction Panel -->
+  <div id="panel-sequence" class="panel active">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(6,182,212,0.15);color:var(--accent-cyan)">&#129516;</div>
+          序列预测
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">DNA 序列</label>
+            <textarea id="seqInput" class="form-textarea" rows="4" placeholder="输入 DNA 序列 (A/T/G/C)&#10;例如: ATGCGATCGATCGATCG...&#10;序列将被填充至支持的长度">ATGCGATCGATCGATCGAATTCGATCGCTAGCGATCGATCGATATCGATCGCGATCGATCGAATTCGATCGCTAGCGATCGATCGATATCGATCGCGATCGATCGAATTCGATCGCTAGCGATCGATCGATATCGATCG</textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">预测类型</label>
+              <select id="seqOutputType" class="form-select">
+                <option value="DNASE">DNase 染色质开放</option>
+                <option value="ATAC">ATAC 染色质可及性</option>
+                <option value="CAGE">CAGE 基因表达</option>
+                <option value="RNA_SEQ">RNA-seq 转录组</option>
+                <option value="CHIP_HISTONE">组蛋白修饰</option>
+                <option value="CHIP_TF">转录因子结合</option>
+                <option value="PROCAP">PRO-cap 转录起始</option>
+                <option value="SPLICE_SITE_USAGE">剪接位点使用</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">组织/细胞类型</label>
+              <select id="seqOntology" class="form-select">
+                <option value="UBERON:0002048">肺 (Lung)</option>
+                <option value="UBERON:0002107">肝 (Liver)</option>
+                <option value="UBERON:0000955">脑 (Brain)</option>
+                <option value="UBERON:0000948">心 (Heart)</option>
+                <option value="UBERON:0002113">肾 (Kidney)</option>
+                <option value="CL:0000738">白细胞 (Leukocyte)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <button id="seqBtn" class="btn btn-primary" onclick="runSequencePrediction()">
+              <span class="spinner"></span>
+              <span class="btn-text">&#9654; 运行预测</span>
+            </button>
+          </div>
+
+          <div style="margin-top:20px">
+            <label class="form-label" style="margin-bottom:8px">示例序列</label>
+            <div class="examples-list">
+              <div class="example-item" onclick="loadExample('seq', 'brca1')">
+                <span class="example-tag" style="background:rgba(239,68,68,0.15);color:var(--accent-red)">BRCA1</span>
+                <span>BRCA1 启动子区域 - 乳腺癌相关基因</span>
+              </div>
+              <div class="example-item" onclick="loadExample('seq', 'tp53')">
+                <span class="example-tag" style="background:rgba(139,92,246,0.15);color:var(--accent-purple)">TP53</span>
+                <span>TP53 编码区 - 抑癌基因</span>
+              </div>
+              <div class="example-item" onclick="loadExample('seq', 'random')">
+                <span class="example-tag" style="background:rgba(100,116,139,0.15);color:var(--text-muted)">Random</span>
+                <span>随机 DNA 序列 (1000bp)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-green)">&#128200;</div>
+          预测结果
+        </div>
+        <div class="card-body viz-container">
+          <div id="seqVizPlaceholder" class="viz-placeholder">
+            <div class="viz-placeholder-icon">&#129516;</div>
+            <p>输入 DNA 序列并点击「运行预测」<br>查看 AlphaGenome 的信号预测轨道</p>
+          </div>
+          <div id="seqVizResult" style="display:none">
+            <div id="seqDnaViewer" class="dna-viewer" style="display:none"></div>
+            <div class="chart-wrapper">
+              <div class="chart-title">
+                <span id="seqChartLabel">信号轨道</span>
+                <span id="seqModeBadge" class="badge badge-demo">DEMO</span>
+              </div>
+              <canvas id="seqChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interval Prediction Panel -->
+  <div id="panel-interval" class="panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(139,92,246,0.15);color:var(--accent-purple)">&#128205;</div>
+          基因组区间预测
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">染色体</label>
+            <select id="intChrom" class="form-select">
+              <option value="chr1">chr1</option>
+              <option value="chr2">chr2</option>
+              <option value="chr3">chr3</option>
+              <option value="chr7">chr7</option>
+              <option value="chr11">chr11</option>
+              <option value="chr17">chr17</option>
+              <option value="chr19">chr19</option>
+              <option value="chr22" selected>chr22</option>
+              <option value="chrX">chrX</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">起始位置</label>
+              <input id="intStart" class="form-input" type="number" value="35677410" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">终止位置</label>
+              <input id="intEnd" class="form-input" type="number" value="36725986" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">预测类型</label>
+              <select id="intOutputType" class="form-select">
+                <option value="RNA_SEQ" selected>RNA-seq 转录组</option>
+                <option value="DNASE">DNase 染色质开放</option>
+                <option value="ATAC">ATAC 染色质可及性</option>
+                <option value="CAGE">CAGE 基因表达</option>
+                <option value="CHIP_HISTONE">组蛋白修饰</option>
+                <option value="CHIP_TF">转录因子结合</option>
+                <option value="CONTACT_MAPS">染色质接触图谱</option>
+                <option value="SPLICE_SITE_USAGE">剪接位点使用</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">组织/细胞类型</label>
+              <select id="intOntology" class="form-select">
+                <option value="UBERON:0001157">肝右叶 (Right lobe of liver)</option>
+                <option value="UBERON:0002048">肺 (Lung)</option>
+                <option value="UBERON:0000955">脑 (Brain)</option>
+                <option value="UBERON:0000948">心 (Heart)</option>
+                <option value="UBERON:0002113">肾 (Kidney)</option>
+                <option value="CL:0000738">白细胞 (Leukocyte)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <button id="intBtn" class="btn btn-primary" onclick="runIntervalPrediction()">
+              <span class="spinner"></span>
+              <span class="btn-text">&#9654; 运行预测</span>
+            </button>
+          </div>
+
+          <div style="margin-top:20px">
+            <label class="form-label" style="margin-bottom:8px">常用基因组区间</label>
+            <div class="examples-list">
+              <div class="example-item" onclick="loadExample('int', 'myc')">
+                <span class="example-tag" style="background:rgba(236,72,153,0.15);color:var(--accent-pink)">MYC</span>
+                <span>chr8:127,735,434-127,742,951 原癌基因</span>
+              </div>
+              <div class="example-item" onclick="loadExample('int', 'hoxa')">
+                <span class="example-tag" style="background:rgba(59,130,246,0.15);color:var(--accent-blue)">HOXA</span>
+                <span>chr7:27,090,000-27,200,000 HOX 基因簇</span>
+              </div>
+              <div class="example-item" onclick="loadExample('int', 'globin')">
+                <span class="example-tag" style="background:rgba(245,158,11,0.15);color:var(--accent-amber)">HBB</span>
+                <span>chr11:5,225,000-5,275,000 珠蛋白基因簇</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-green)">&#128200;</div>
+          预测结果
+        </div>
+        <div class="card-body viz-container">
+          <div id="intVizPlaceholder" class="viz-placeholder">
+            <div class="viz-placeholder-icon">&#128205;</div>
+            <p>设置基因组区间坐标并点击「运行预测」<br>查看指定区域的信号预测或接触图谱</p>
+          </div>
+          <div id="intVizResult" style="display:none">
+            <div class="chart-wrapper">
+              <div class="chart-title">
+                <span id="intChartLabel">信号轨道</span>
+                <span id="intModeBadge" class="badge badge-demo">DEMO</span>
+              </div>
+              <canvas id="intChart"></canvas>
+              <div id="intContactContainer" class="contact-map-container" style="display:none">
+                <canvas id="contactCanvas" width="400" height="400"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant Analysis Panel -->
+  <div id="panel-variant" class="panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(239,68,68,0.15);color:var(--accent-red)">&#128256;</div>
+          变异效应预测
+        </div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">染色体</label>
+              <select id="varChrom" class="form-select">
+                <option value="chr1">chr1</option>
+                <option value="chr7">chr7</option>
+                <option value="chr17">chr17</option>
+                <option value="chr22" selected>chr22</option>
+                <option value="chrX">chrX</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">位置</label>
+              <input id="varPos" class="form-input" type="number" value="36201698" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">参考等位基因 (REF)</label>
+              <select id="varRef" class="form-select">
+                <option value="A" selected>A</option>
+                <option value="T">T</option>
+                <option value="G">G</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">替代等位基因 (ALT)</label>
+              <select id="varAlt" class="form-select">
+                <option value="A">A</option>
+                <option value="T">T</option>
+                <option value="G">G</option>
+                <option value="C" selected>C</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">预测类型</label>
+              <select id="varOutputType" class="form-select">
+                <option value="RNA_SEQ" selected>RNA-seq 转录组</option>
+                <option value="DNASE">DNase 染色质开放</option>
+                <option value="ATAC">ATAC 染色质可及性</option>
+                <option value="CAGE">CAGE 基因表达</option>
+                <option value="CHIP_HISTONE">组蛋白修饰</option>
+                <option value="CHIP_TF">转录因子结合</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">组织/细胞类型</label>
+              <select id="varOntology" class="form-select">
+                <option value="UBERON:0001157">肝右叶</option>
+                <option value="UBERON:0002048">肺</option>
+                <option value="UBERON:0000955">脑</option>
+                <option value="UBERON:0000948">心</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <button id="varBtn" class="btn btn-primary" onclick="runVariantPrediction()">
+              <span class="spinner"></span>
+              <span class="btn-text">&#9654; 运行变异分析</span>
+            </button>
+          </div>
+
+          <div style="margin-top:20px">
+            <label class="form-label" style="margin-bottom:8px">已知变异示例</label>
+            <div class="examples-list">
+              <div class="example-item" onclick="loadExample('var', 'rs1229984')">
+                <span class="example-tag" style="background:rgba(239,68,68,0.15);color:var(--accent-red)">rs1229984</span>
+                <span>ADH1B 变异 - 酒精代谢相关</span>
+              </div>
+              <div class="example-item" onclick="loadExample('var', 'rs334')">
+                <span class="example-tag" style="background:rgba(245,158,11,0.15);color:var(--accent-amber)">rs334</span>
+                <span>HBB E6V - 镰刀型细胞贫血</span>
+              </div>
+              <div class="example-item" onclick="loadExample('var', 'rs12913832')">
+                <span class="example-tag" style="background:rgba(59,130,246,0.15);color:var(--accent-blue)">rs12913832</span>
+                <span>HERC2 - 虹膜颜色决定</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-green)">&#128200;</div>
+          变异效应结果
+        </div>
+        <div class="card-body viz-container">
+          <div id="varVizPlaceholder" class="viz-placeholder">
+            <div class="viz-placeholder-icon">&#128256;</div>
+            <p>输入变异位点信息并点击「运行变异分析」<br>比较 REF 与 ALT 等位基因的信号差异</p>
+          </div>
+          <div id="varVizResult" style="display:none">
+            <div id="varScoreCards" class="score-cards"></div>
+            <div class="chart-wrapper">
+              <div class="chart-title">
+                <span id="varChartLabel">REF vs ALT 信号对比</span>
+                <span id="varModeBadge" class="badge badge-demo">DEMO</span>
+              </div>
+              <canvas id="varChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+              <div class="chart-title">差异信号 (ALT - REF)</div>
+              <canvas id="varDiffChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview Panel -->
+  <div id="panel-overview" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:rgba(139,92,246,0.15);color:var(--accent-purple)">&#128218;</div>
+        AlphaGenome 预测模态
+      </div>
+      <div class="card-body">
+        <p style="color:var(--text-secondary);font-size:14px;line-height:1.6;margin-bottom:4px">
+          AlphaGenome 可从 DNA 序列预测 <strong>11 种不同的基因组功能模态</strong>，覆盖基因调控的多个层面。
+          点击任一模态卡片可快速进入对应的预测页面。
+        </p>
+        <div class="modality-grid">
+          <div class="modality-card" onclick="quickPredict('DNASE')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(6,182,212,0.15);color:var(--accent-cyan)">&#9883;</div>
+              <h3>DNase-seq</h3>
+            </div>
+            <p>染色质开放性。检测 DNase I 超敏位点，标识活跃的调控元件。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('ATAC')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(59,130,246,0.15);color:var(--accent-blue)">&#128300;</div>
+              <h3>ATAC-seq</h3>
+            </div>
+            <p>转座酶可及性。通过 Tn5 转座酶检测开放染色质区域。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('CAGE')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-green)">&#128209;</div>
+              <h3>CAGE</h3>
+            </div>
+            <p>基因表达帽分析。精确定位转录起始位点 (TSS) 和启动子活性。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('RNA_SEQ')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(139,92,246,0.15);color:var(--accent-purple)">&#129516;</div>
+              <h3>RNA-seq</h3>
+            </div>
+            <p>转录组测序。量化基因表达水平和转录本丰度。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('CHIP_HISTONE')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(236,72,153,0.15);color:var(--accent-pink)">&#127800;</div>
+              <h3>ChIP-seq (组蛋白)</h3>
+            </div>
+            <p>组蛋白修饰。检测 H3K4me3、H3K27ac 等表观遗传标记。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('CHIP_TF')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(245,158,11,0.15);color:var(--accent-amber)">&#128279;</div>
+              <h3>ChIP-seq (转录因子)</h3>
+            </div>
+            <p>转录因子结合。定位 CTCF 等蛋白质与 DNA 的结合位点。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('PROCAP')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(239,68,68,0.15);color:var(--accent-red)">&#9889;</div>
+              <h3>PRO-cap</h3>
+            </div>
+            <p>转录起始精密检测。捕获新生 RNA 5' 端，揭示活跃启动子和增强子。</p>
+          </div>
+          <div class="modality-card" onclick="quickPredict('SPLICE_SITE_USAGE')">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(100,116,139,0.15);color:var(--text-secondary)">&#9986;</div>
+              <h3>剪接位点</h3>
+            </div>
+            <p>pre-mRNA 剪接。预测剪接位点使用率、剪接连接和可变剪接。</p>
+          </div>
+          <div class="modality-card" onclick="switchTab('interval'); document.getElementById('intOutputType').value='CONTACT_MAPS';">
+            <div class="modality-card-header">
+              <div class="modality-icon" style="background:rgba(6,182,212,0.15);color:var(--accent-cyan)">&#127758;</div>
+              <h3>染色质接触图谱</h3>
+            </div>
+            <p>3D 基因组结构。预测染色质远程互作和拓扑关联域 (TAD)。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>
+    Powered by <a href="https://deepmind.google/blog/alphagenome-ai-for-better-understanding-the-genome/" target="_blank">Google DeepMind AlphaGenome</a> |
+    <a href="https://www.alphagenomedocs.com/" target="_blank">API Documentation</a> |
+    <a href="https://github.com/google-deepmind/alphagenome" target="_blank">GitHub</a>
+    <br><span style="margin-top:4px;display:inline-block">仅用于非商业研究用途。本演示中的模拟数据不代表真实预测结果。</span>
+  </p>
+</footer>
+
+<script>
+// ========== State ==========
+let charts = {};
+let apiMode = 'demo';
+const API_BASE = '';  // Same origin when served by Flask
+
+// ========== Init ==========
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check API status
+  try {
+    const res = await fetch(`${API_BASE}/api/status`);
+    if (res.ok) {
+      const data = await res.json();
+      apiMode = data.mode;
+      updateStatusBadge(data.mode);
+    }
+  } catch {
+    apiMode = 'demo';
+    updateStatusBadge('demo');
+  }
+});
+
+function updateStatusBadge(mode) {
+  const badge = document.getElementById('statusBadge');
+  const text = document.getElementById('statusText');
+  badge.className = `status-badge ${mode}`;
+  text.textContent = mode === 'live' ? 'Live API' : 'Demo Mode';
+}
+
+// ========== Tab Navigation ==========
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+  document.getElementById(`panel-${tabId}`).classList.add('active');
+}
+
+// ========== Example Loaders ==========
+function loadExample(type, name) {
+  if (type === 'seq') {
+    const examples = {
+      brca1: 'ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCATCTGTCTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGCATGCTGAAACTTCTCAACCAGAAGAAAGGGCCTTCACAGTGTCCTTTATGTAAGAATGATATAACCAAAAGGAGCCTACAAGAAAGTACGAGATTTAGTCAACTTGTTGAAGAGCTATTGAAAATCATTTGTGCTTTTCAGCTTGACACAGGTTTGGAGTATGCAAACAGCTATAATTTTGCAAAAAAGGAAAATAACTCTCCTGAACATCTAAAAGATGAAGTTTCTATCATCCAAAGTATGGGCTACAGAAACCGTGCCAAAAGACTTCTACAGAGTGAACCCGAAAATCCTTCCTTG',
+      tp53: 'ATGGAGGAGCCGCAGTCAGATCCTAGCGTGAGTTTGCACTGAGAAGCAATGGATGATTTGATGCTGTCCCCGGACGATATTGAACAATGGTTCACTGAAGACCCAGGTCCAGATGAAGCTCCCAGAATGCCAGAGGCTGCTCCCCCCGTGGCCCCTGCACCAGCAGCTCCTACACCGGCGGCCCCTGCACCAGCCCTGTCCTCCCAGCCACTGCCCCCTCCCCCCGCCAGGCTGTGGCTCTGATTCCCTGCTGCAATGGTCAGTGGGCCCTGTGTCCCCAACTGCCAGTCTCCCTCCCCATCAGCAGAGGCCCAGCCTCTGAGCCCAGCTCAGGCTCCAAGCACTGCCCTCCAGACACCCCCACCAAATGCCTGCAGG',
+      random: generateRandomDNA(1000),
+    };
+    document.getElementById('seqInput').value = examples[name] || '';
+  } else if (type === 'int') {
+    const examples = {
+      myc: { chrom: 'chr8', start: 127735434, end: 127742951 },
+      hoxa: { chrom: 'chr7', start: 27090000, end: 27200000 },
+      globin: { chrom: 'chr11', start: 5225000, end: 5275000 },
+    };
+    const ex = examples[name];
+    if (ex) {
+      document.getElementById('intChrom').value = ex.chrom;
+      // Add option if not present
+      const chromSelect = document.getElementById('intChrom');
+      if (!Array.from(chromSelect.options).find(o => o.value === ex.chrom)) {
+        const opt = document.createElement('option');
+        opt.value = ex.chrom; opt.textContent = ex.chrom;
+        chromSelect.appendChild(opt);
+        chromSelect.value = ex.chrom;
+      }
+      document.getElementById('intStart').value = ex.start;
+      document.getElementById('intEnd').value = ex.end;
+    }
+  } else if (type === 'var') {
+    const examples = {
+      rs1229984: { chrom: 'chr4', pos: 99318162, ref: 'G', alt: 'A' },
+      rs334: { chrom: 'chr11', pos: 5227002, ref: 'A', alt: 'T' },
+      rs12913832: { chrom: 'chr15', pos: 28120472, ref: 'A', alt: 'G' },
+    };
+    const ex = examples[name];
+    if (ex) {
+      const chromSelect = document.getElementById('varChrom');
+      if (!Array.from(chromSelect.options).find(o => o.value === ex.chrom)) {
+        const opt = document.createElement('option');
+        opt.value = ex.chrom; opt.textContent = ex.chrom;
+        chromSelect.appendChild(opt);
+      }
+      chromSelect.value = ex.chrom;
+      document.getElementById('varPos').value = ex.pos;
+      document.getElementById('varRef').value = ex.ref;
+      document.getElementById('varAlt').value = ex.alt;
+    }
+  }
+}
+
+function generateRandomDNA(len) {
+  const bases = 'ATGC';
+  let seq = '';
+  for (let i = 0; i < len; i++) seq += bases[Math.floor(Math.random() * 4)];
+  return seq;
+}
+
+function quickPredict(outputType) {
+  switchTab('interval');
+  document.getElementById('intOutputType').value = outputType;
+}
+
+// ========== API Calls ==========
+async function apiCall(endpoint, body) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min timeout for real API
+    const res = await fetch(`${API_BASE}/api/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || `HTTP ${res.status}` };
+    return json;
+  } catch (e) {
+    if (e.name === 'AbortError') return { error: 'Request timed out (5 min)' };
+    // Fallback to local mock when server is unreachable
+    console.warn('API unreachable, using mock data:', e.message);
+    return { mode: 'demo', data: generateMockData(body.output_type, 1000) };
+  }
+}
+
+function generateMockData(outputType, n) {
+  const values = [];
+  const seed = hashCode(outputType || 'default');
+  let rng = seed;
+  const rand = () => { rng = (rng * 16807 + 0) % 2147483647; return rng / 2147483647; };
+
+  if (outputType === 'CONTACT_MAPS') {
+    const size = Math.min(n, 80);
+    const matrix = [];
+    for (let i = 0; i < size; i++) {
+      const row = [];
+      for (let j = 0; j < size; j++) {
+        const dist = Math.abs(i - j);
+        const val = Math.max(0, 1.0 / (1 + dist * 0.25) + (rand() - 0.5) * 0.1);
+        // Add TAD-like structures
+        const inTAD = (i < size * 0.35 && j < size * 0.35) ||
+                      (i >= size * 0.35 && i < size * 0.65 && j >= size * 0.35 && j < size * 0.65) ||
+                      (i >= size * 0.65 && j >= size * 0.65);
+        row.push(Math.round((val + (inTAD ? 0.15 : 0)) * 10000) / 10000);
+      }
+      matrix.push(row);
+    }
+    return { type: 'contact_map', matrix, size };
+  }
+
+  for (let i = 0; i < n; i++) {
+    let base = 0.1;
+    // Broad regulatory peaks
+    const peaks = [0.15, 0.32, 0.48, 0.65, 0.82];
+    for (const p of peaks) {
+      const center = n * p;
+      const width = n * 0.03 * (0.5 + rand());
+      base += (2.0 + rand() * 2) * Math.exp(-((i - center) ** 2) / (2 * width ** 2));
+    }
+    // Sharp peaks
+    const sharpPeaks = [0.17, 0.34, 0.50, 0.67];
+    for (const p of sharpPeaks) {
+      const center = n * p;
+      const width = n * 0.008;
+      base += (3.0 + rand() * 3) * Math.exp(-((i - center) ** 2) / (2 * width ** 2));
+    }
+    base += (rand() - 0.5) * 0.3;
+    values.push(Math.max(0, Math.round(base * 10000) / 10000));
+  }
+  return { type: 'track', values, output_type: outputType, n_points: n };
+}
+
+function generateMockVariantData(outputType) {
+  const n = 500;
+  const seed = hashCode(outputType || 'variant');
+  let rng = seed;
+  const rand = () => { rng = (rng * 16807 + 0) % 2147483647; return rng / 2147483647; };
+
+  const refValues = [], altValues = [];
+  for (let i = 0; i < n; i++) {
+    let refBase = 0.1, altBase = 0.1;
+    const peaks = [0.25, 0.5, 0.75];
+    for (const p of peaks) {
+      const center = n * p;
+      const width = n * 0.035;
+      refBase += 3.0 * Math.exp(-((i - center) ** 2) / (2 * width ** 2));
+      const altShift = (p === 0.5) ? -n * 0.02 : 0;
+      const altMag = (p === 0.5) ? 4.5 : 2.5;
+      altBase += altMag * Math.exp(-((i - center - altShift) ** 2) / (2 * width ** 2));
+    }
+    refBase += (rand() - 0.5) * 0.2;
+    altBase += (rand() - 0.5) * 0.2;
+    refValues.push(Math.max(0, Math.round(refBase * 1e4) / 1e4));
+    altValues.push(Math.max(0, Math.round(altBase * 1e4) / 1e4));
+  }
+
+  return {
+    type: 'variant_comparison',
+    reference: refValues,
+    alternate: altValues,
+    scores: { raw_score: 0.847, quantile: 0.92 },
+    output_type: outputType,
+  };
+}
+
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || 1;
+}
+
+// ========== Sequence Prediction ==========
+async function runSequencePrediction() {
+  const btn = document.getElementById('seqBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const sequence = document.getElementById('seqInput').value.trim().toUpperCase();
+  const outputType = document.getElementById('seqOutputType').value;
+  const ontology = document.getElementById('seqOntology').value;
+
+  let result;
+  try {
+    result = await apiCall('predict/sequence', {
+      sequence, output_type: outputType, ontology_term: ontology,
+    });
+  } catch {
+    result = { mode: 'demo', data: generateMockData(outputType, Math.max(sequence.length, 500)) };
+  }
+
+  if (result.error) {
+    alert('API Error: ' + result.error);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+  }
+
+  const mode = result.mode || 'demo';
+  const data = result.data;
+
+  // Show DNA viewer for short sequences
+  const dnaViewer = document.getElementById('seqDnaViewer');
+  if (sequence.length > 0 && sequence.length <= 500) {
+    dnaViewer.style.display = 'block';
+    dnaViewer.innerHTML = colorDNA(sequence);
+  } else {
+    dnaViewer.style.display = 'none';
+  }
+
+  // Update mode badge
+  document.getElementById('seqModeBadge').className = `badge badge-${mode}`;
+  document.getElementById('seqModeBadge').textContent = mode.toUpperCase();
+
+  const outputLabels = {
+    DNASE: 'DNase-seq 信号', ATAC: 'ATAC-seq 信号', CAGE: 'CAGE 信号',
+    RNA_SEQ: 'RNA-seq 信号', CHIP_HISTONE: '组蛋白修饰信号', CHIP_TF: '转录因子结合信号',
+    PROCAP: 'PRO-cap 信号', SPLICE_SITE_USAGE: '剪接位点使用率',
+  };
+  document.getElementById('seqChartLabel').textContent = outputLabels[outputType] || outputType;
+
+  // Draw chart
+  const values = data.values || data;
+  renderTrackChart('seqChart', values, outputType);
+
+  document.getElementById('seqVizPlaceholder').style.display = 'none';
+  document.getElementById('seqVizResult').style.display = 'block';
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+}
+
+// ========== Interval Prediction ==========
+async function runIntervalPrediction() {
+  const btn = document.getElementById('intBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const chrom = document.getElementById('intChrom').value;
+  const start = parseInt(document.getElementById('intStart').value);
+  const end = parseInt(document.getElementById('intEnd').value);
+  const outputType = document.getElementById('intOutputType').value;
+  const ontology = document.getElementById('intOntology').value;
+
+  let result;
+  try {
+    result = await apiCall('predict/interval', {
+      chromosome: chrom, start, end, output_type: outputType, ontology_term: ontology,
+    });
+  } catch {
+    result = { mode: 'demo', data: generateMockData(outputType, Math.min(end - start, 1000)) };
+  }
+
+  if (result.error) {
+    alert('API Error: ' + result.error);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+  }
+
+  const mode = result.mode || 'demo';
+  const data = result.data;
+
+  document.getElementById('intModeBadge').className = `badge badge-${mode}`;
+  document.getElementById('intModeBadge').textContent = mode.toUpperCase();
+
+  const label = `${chrom}:${start.toLocaleString()}-${end.toLocaleString()}`;
+  document.getElementById('intChartLabel').textContent = label;
+
+  const chartCanvas = document.getElementById('intChart');
+  const contactContainer = document.getElementById('intContactContainer');
+
+  if (data.type === 'contact_map' || outputType === 'CONTACT_MAPS') {
+    chartCanvas.style.display = 'none';
+    contactContainer.style.display = 'flex';
+    renderContactMap(data.matrix || generateMockData('CONTACT_MAPS', 80).matrix);
+  } else {
+    chartCanvas.style.display = 'block';
+    contactContainer.style.display = 'none';
+    const values = data.values || data;
+    renderTrackChart('intChart', values, outputType);
+  }
+
+  document.getElementById('intVizPlaceholder').style.display = 'none';
+  document.getElementById('intVizResult').style.display = 'block';
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+}
+
+// ========== Variant Prediction ==========
+async function runVariantPrediction() {
+  const btn = document.getElementById('varBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const chrom = document.getElementById('varChrom').value;
+  const position = parseInt(document.getElementById('varPos').value);
+  const ref = document.getElementById('varRef').value;
+  const alt = document.getElementById('varAlt').value;
+  const outputType = document.getElementById('varOutputType').value;
+  const ontology = document.getElementById('varOntology').value;
+
+  let result;
+  try {
+    result = await apiCall('predict/variant', {
+      chromosome: chrom, position, ref, alt,
+      output_type: outputType, ontology_term: ontology,
+    });
+  } catch {
+    result = { mode: 'demo', data: generateMockVariantData(outputType) };
+  }
+
+  if (result.error) {
+    alert('API Error: ' + result.error);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+  }
+
+  const mode = result.mode || 'demo';
+  const data = result.data;
+
+  document.getElementById('varModeBadge').className = `badge badge-${mode}`;
+  document.getElementById('varModeBadge').textContent = mode.toUpperCase();
+
+  // Score cards - handle both live and demo formats
+  const scores = data.scores || {};
+  let scoreHtml = '';
+
+  if (scores.max_abs_score !== undefined) {
+    // Live API format with top_genes
+    scoreHtml = `
+      <div class="score-card">
+        <div class="score-card-label">最大效应分数</div>
+        <div class="score-card-value ${getScoreClass(scores.max_abs_score)}">${scores.max_abs_score.toFixed(4)}</div>
+        <div class="score-card-desc">|log2FC| 最大绝对值</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-label">最大分位数</div>
+        <div class="score-card-value ${getScoreClass(scores.max_quantile)}">${scores.max_quantile ? (scores.max_quantile * 100).toFixed(1) + '%' : 'N/A'}</div>
+        <div class="score-card-desc">跨基因/轨道最高排名</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-label">变异位点</div>
+        <div class="score-card-value" style="font-size:18px;color:var(--text-primary)">${chrom}:${position.toLocaleString()}</div>
+        <div class="score-card-desc"><span style="color:var(--dna-a)">${ref}</span> → <span style="color:var(--accent-cyan)">${alt}</span></div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-label">分析范围</div>
+        <div class="score-card-value" style="font-size:18px;color:var(--text-primary)">${scores.n_genes || '?'}</div>
+        <div class="score-card-desc">基因 x ${scores.n_tracks || '?'} 轨道</div>
+      </div>
+    `;
+    // Add top genes if available
+    if (scores.top_genes && scores.top_genes.length > 0) {
+      scoreHtml += `<div class="score-card" style="grid-column: 1 / -1; text-align: left;">
+        <div class="score-card-label" style="margin-bottom:8px">TOP 受影响基因</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${scores.top_genes.map(g => `<span style="
+            display:inline-flex;align-items:center;gap:6px;
+            padding:6px 12px;border-radius:6px;font-size:13px;
+            background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);">
+            <strong style="color:var(--accent-red)">${g.name}</strong>
+            <span style="color:var(--text-muted);font-family:monospace">${g.score.toFixed(4)}</span>
+          </span>`).join('')}
+        </div>
+      </div>`;
+    }
+  } else {
+    // Demo/fallback format
+    scoreHtml = `
+      <div class="score-card">
+        <div class="score-card-label">变异效应分数</div>
+        <div class="score-card-value ${getScoreClass(scores.raw_score)}">${(scores.raw_score || 0).toFixed(3)}</div>
+        <div class="score-card-desc">原始预测分数</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-label">分位数排名</div>
+        <div class="score-card-value ${getScoreClass(scores.quantile)}">${scores.quantile ? (scores.quantile * 100).toFixed(1) + '%' : 'N/A'}</div>
+        <div class="score-card-desc">相对于所有变异的排名</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-label">变异位点</div>
+        <div class="score-card-value" style="font-size:18px;color:var(--text-primary)">${chrom}:${position.toLocaleString()}</div>
+        <div class="score-card-desc"><span style="color:var(--dna-a)">${ref}</span> → <span style="color:var(--accent-cyan)">${alt}</span></div>
+      </div>
+    `;
+  }
+  document.getElementById('varScoreCards').innerHTML = scoreHtml;
+
+  document.getElementById('varChartLabel').textContent =
+    `REF (${ref}) vs ALT (${alt}) ${outputType.replace('_', '-')} 信号`;
+
+  // Render comparison chart
+  const refValues = data.reference || [];
+  const altValues = data.alternate || [];
+  renderVariantChart('varChart', refValues, altValues, ref, alt);
+
+  // Render diff chart
+  const diffValues = refValues.map((v, i) => (altValues[i] || 0) - v);
+  renderDiffChart('varDiffChart', diffValues);
+
+  document.getElementById('varVizPlaceholder').style.display = 'none';
+  document.getElementById('varVizResult').style.display = 'block';
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+}
+
+function getScoreClass(score) {
+  if (score === null || score === undefined) return '';
+  if (score >= 0.8) return 'score-high';
+  if (score >= 0.5) return 'score-medium';
+  return 'score-low';
+}
+
+// ========== Visualization ==========
+function getTrackColor(outputType) {
+  const colors = {
+    DNASE: { border: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+    ATAC: { border: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+    CAGE: { border: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+    RNA_SEQ: { border: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
+    CHIP_HISTONE: { border: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
+    CHIP_TF: { border: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+    PROCAP: { border: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+    SPLICE_SITE_USAGE: { border: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
+    SPLICE_SITES: { border: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
+    SPLICE_JUNCTIONS: { border: '#64748b', bg: 'rgba(100,116,139,0.15)' },
+  };
+  return colors[outputType] || { border: '#06b6d4', bg: 'rgba(6,182,212,0.15)' };
+}
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 600, easing: 'easeInOutQuart' },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#1a2332',
+      borderColor: '#2a3a52',
+      borderWidth: 1,
+      titleColor: '#e2e8f0',
+      bodyColor: '#94a3b8',
+      padding: 10,
+      cornerRadius: 6,
+    },
+  },
+  scales: {
+    x: {
+      display: true,
+      grid: { color: 'rgba(42,58,82,0.3)', drawBorder: false },
+      ticks: { color: '#64748b', maxTicksLimit: 10, font: { size: 11 } },
+      title: { display: true, text: '碱基位置 (bp)', color: '#64748b', font: { size: 12 } },
+    },
+    y: {
+      display: true,
+      grid: { color: 'rgba(42,58,82,0.3)', drawBorder: false },
+      ticks: { color: '#64748b', font: { size: 11 } },
+      title: { display: true, text: '信号强度', color: '#64748b', font: { size: 12 } },
+      beginAtZero: true,
+    },
+  },
+};
+
+function renderTrackChart(canvasId, values, outputType) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  const color = getTrackColor(outputType);
+  // Downsample for performance
+  const ds = downsample(values, 800);
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId);
+  canvas.parentElement.style.height = '320px';
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ds.map((_, i) => Math.round(i * values.length / ds.length)),
+      datasets: [{
+        data: ds,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        borderWidth: 1.5,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.2,
+      }],
+    },
+    options: {
+      ...chartDefaults,
+      elements: { line: { borderCapStyle: 'round' } },
+    },
+  });
+}
+
+function renderVariantChart(canvasId, refValues, altValues, refBase, altBase) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  const refDs = downsample(refValues, 500);
+  const altDs = downsample(altValues, 500);
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId);
+  canvas.parentElement.style.height = '280px';
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: refDs.map((_, i) => Math.round(i * refValues.length / refDs.length)),
+      datasets: [
+        {
+          label: `REF (${refBase})`,
+          data: refDs,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.08)',
+          borderWidth: 1.5,
+          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
+        },
+        {
+          label: `ALT (${altBase})`,
+          data: altDs,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.08)',
+          borderWidth: 1.5,
+          fill: true,
+          pointRadius: 0,
+          tension: 0.2,
+        },
+      ],
+    },
+    options: {
+      ...chartDefaults,
+      plugins: {
+        ...chartDefaults.plugins,
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { color: '#94a3b8', font: { size: 12 }, usePointStyle: true, pointStyle: 'line' },
+        },
+      },
+    },
+  });
+}
+
+function renderDiffChart(canvasId, values) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  const ds = downsample(values, 500);
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId);
+  canvas.parentElement.style.height = '200px';
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ds.map((_, i) => Math.round(i * values.length / ds.length)),
+      datasets: [{
+        data: ds,
+        backgroundColor: ds.map(v => v > 0 ? 'rgba(239,68,68,0.6)' : 'rgba(59,130,246,0.6)'),
+        borderWidth: 0,
+        barPercentage: 1.0,
+        categoryPercentage: 1.0,
+      }],
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: {
+          ...chartDefaults.scales.y,
+          title: { display: true, text: '差异 (ALT - REF)', color: '#64748b', font: { size: 12 } },
+          beginAtZero: false,
+        },
+      },
+    },
+  });
+}
+
+function renderContactMap(matrix) {
+  const canvas = document.getElementById('contactCanvas');
+  const size = matrix.length;
+  const cellSize = Math.max(2, Math.min(6, Math.floor(400 / size)));
+  canvas.width = size * cellSize;
+  canvas.height = size * cellSize;
+
+  const ctx = canvas.getContext('2d');
+
+  // Find max value
+  let maxVal = 0;
+  for (let i = 0; i < size; i++)
+    for (let j = 0; j < size; j++)
+      maxVal = Math.max(maxVal, matrix[i][j]);
+
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      const val = matrix[i][j] / maxVal;
+      // Blue-white-red color scheme
+      const r = Math.round(val > 0.5 ? 255 : val * 2 * 255);
+      const g = Math.round(val > 0.5 ? (1 - val) * 2 * 80 : val * 2 * 80);
+      const b = Math.round(val > 0.5 ? (1 - val) * 2 * 255 : 255);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
+function colorDNA(seq) {
+  return seq.split('').map(b => `<span class="base-${b}">${b}</span>`).join('');
+}
+
+function downsample(arr, maxPoints) {
+  if (arr.length <= maxPoints) return arr;
+  const step = arr.length / maxPoints;
+  const result = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const start = Math.floor(i * step);
+    const end = Math.floor((i + 1) * step);
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += arr[j];
+    result.push(sum / (end - start));
+  }
+  return result;
+}
+</script>
+
+</body>
+</html>
