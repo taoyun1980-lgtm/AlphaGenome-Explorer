@@ -1105,7 +1105,10 @@
 // ========== State ==========
 let charts = {};
 let apiMode = 'demo';
-const API_BASE = '';  // Same origin when served by Flask
+// Auto-detect: if served from GitHub Pages, use Render backend; otherwise same origin
+const RENDER_URL = 'https://alphagenome-explorer.onrender.com';
+const isGitHubPages = location.hostname.includes('github.io');
+const API_BASE = isGitHubPages ? RENDER_URL : '';
 
 // ========== Init ==========
 document.addEventListener('DOMContentLoaded', async () => {
