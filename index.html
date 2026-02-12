@@ -1106,9 +1106,9 @@
 let charts = {};
 let apiMode = 'demo';
 // Auto-detect: if served from GitHub Pages, use Render backend; otherwise same origin
-const RENDER_URL = 'https://alphagenome-explorer.onrender.com';
-const isGitHubPages = location.hostname.includes('github.io');
-const API_BASE = isGitHubPages ? RENDER_URL : '';
+const REMOTE_API = 'https://taoyun1980-lgtm-alphagenome-explorer.hf.space';
+const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const API_BASE = isLocal ? '' : REMOTE_API;
 
 // ========== Init ==========
 document.addEventListener('DOMContentLoaded', async () => {
